@@ -27,8 +27,10 @@ font = pygame.font.SysFont(None,24)
 
 mitad = ALTO // 2
 
-formacion_actual = "4-4-2"
-menu_abierto = False
+formacion_azul = "4-4-2"
+formacion_rojo = "4-4-2"
+menu_formaciones_azul = False
+menu_formaciones_rojo = False
 
 formaciones = [
     "4-4-2",
@@ -45,6 +47,39 @@ posiciones_base = [
     "MI","MC","MC","MD",
     "DC","DC"
 ]
+
+def load_teams():
+    try:
+        with open(os.path.join(ruta_base, "teams.json"), "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {
+            "Borussia Dortmund": {
+                "formation": "4-4-2",
+                "players": ["Ter Stegen", "Pique", "Ramos", "Varane", "Alba", "Busquets", "Pedri", "De Jong", "Dembele", "Messi", "Suarez"]
+            },
+            "Porto": {
+                "formation": "4-4-2",
+                "players": ["Casillas", "Carvajal", "Pepe", "Ramos", "Marcelo", "Modric", "Kroos", "Casemiro", "Bale", "Benzema", "Ronaldo"]
+            },
+            "Estudiantes de Rio Cuarto": {
+                "formation": "4-4-2",
+                "players": ["Buffon", "Abate", "Barzagli", "Bonucci", "Evra", "Pirlo", "Verratti", "Marchisio", "Robinho", "Balotelli", "Cassano"]
+            },
+            "Cambaceres": {
+                "formation": "4-4-2",
+                "players": ["Neuer", "Lahm", "Boateng", "Hummels", "Alaba", "Schweinsteiger", "Khedira", "Muller", "Robben", "Gotze", "Lewandowski"]
+            }
+        }
+
+def save_teams():
+    with open(os.path.join(ruta_base, "teams.json"), "w") as f:
+        json.dump(teams_data, f, indent=4)
+
+teams_data = load_teams()
+current_team = None
+current_team_red = None
+current_team_color = None
 
 def obtener_formacion(nombre):
     # Defino coordenadas predeterminadas de equipo1 (azul)
@@ -103,18 +138,29 @@ def posiciones_originales(nombre):
     eq1, eq2 = obtener_formacion(nombre)
     return eq1.copy(), eq2.copy()
 
-equipo1, equipo2 = obtener_formacion(formacion_actual)
-originales1, originales2 = posiciones_originales(formacion_actual)
+equipo1, _ = obtener_formacion(formacion_azul)
+_, equipo2 = obtener_formacion(formacion_rojo)
+originales1 = equipo1.copy()
+originales2 = equipo2.copy()
 
 # Listas de posiciones independientes para cada equipo
 posiciones_azul = posiciones_base.copy()
 posiciones_rojo = posiciones_base.copy()
 
-boton_formacion = pygame.Rect(10,10,200,40)
+boton_formacion_azul = pygame.Rect(10,10,200,40)
+boton_formacion_rojo = pygame.Rect(ANCHO - 210,10,200,40)
+boton_equipos = pygame.Rect(10, ALTO - 50, 200, 40)
+boton_equipos_rojo = pygame.Rect(ANCHO - 210, ALTO - 50, 200, 40)
+boton_guardar = pygame.Rect(10, mitad - 20, 30, 30)
+menu_equipos_abierto = False
+menu_equipos_rojo_abierto = False
 
 jugador_seleccionado = None
 offset_x = 0
 offset_y = 0
+last_collided_azul = None
+last_collided_rojo = None
+selected_player = None
 
 def guardar_formacion():
     data = {
@@ -123,6 +169,17 @@ def guardar_formacion():
     }
     with open("formacion_guardada.json","w") as f:
         json.dump(data,f)
+
+
+def guardar_cambios_equipo():
+    # Guarda posiciones y formaciones actuales en teams_data
+    if current_team:
+        teams_data[current_team]["player_positions"] = equipo1.copy()
+        teams_data[current_team]["formation"] = formacion_azul
+    if current_team_red:
+        teams_data[current_team_red]["player_positions"] = equipo2.copy()
+        teams_data[current_team_red]["formation"] = formacion_rojo
+    save_teams()
 
 running = True
 
@@ -138,72 +195,115 @@ while running:
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_x, mouse_y = event.pos
 
-            if boton_formacion.collidepoint(event.pos):
-                menu_abierto = not menu_abierto
+            if boton_formacion_azul.collidepoint(event.pos):
+                menu_formaciones_azul = not menu_formaciones_azul
+                menu_formaciones_rojo = False
 
-            if menu_abierto:
+            if boton_formacion_rojo.collidepoint(event.pos):
+                menu_formaciones_rojo = not menu_formaciones_rojo
+                menu_formaciones_azul = False
+
+            if boton_equipos.collidepoint(event.pos):
+                menu_equipos_abierto = not menu_equipos_abierto
+
+            if boton_equipos_rojo.collidepoint(event.pos):
+                menu_equipos_rojo_abierto = not menu_equipos_rojo_abierto
+
+            if boton_guardar.collidepoint(event.pos):
+                guardar_cambios_equipo()
+
+            if menu_formaciones_azul:
                 for i,f in enumerate(formaciones):
                     rect = pygame.Rect(10,50+i*40,200,35)
                     if rect.collidepoint(event.pos):
-                        formacion_actual = f
-                        equipo1, equipo2 = obtener_formacion(f)
-                        originales1, originales2 = posiciones_originales(f)
-                        posiciones_azul = posiciones_base.copy()
-                        posiciones_rojo = posiciones_base.copy()
-                        menu_abierto = False
+                        formacion_azul = f
+                        equipo1, _ = obtener_formacion(f)
+                        originales1 = equipo1.copy()
+                        posiciones_azul = teams_data[current_team]["players"].copy() if current_team else posiciones_base.copy()
+                        menu_formaciones_azul = False
+                        if current_team_color == 'azul' and current_team:
+                            teams_data[current_team]["formation"] = f
+                            save_teams()
 
-            # Selección de jugadores azules
-            for i,pos in enumerate(equipo1):
-                rect = pygame.Rect(pos[0],pos[1],45,45)
-                if rect.collidepoint(mouse_x,mouse_y):
-                    jugador_seleccionado = ("azul",i)
-                    offset_x = mouse_x - pos[0]
-                    offset_y = mouse_y - pos[1]
+            if menu_formaciones_rojo:
+                for i,f in enumerate(formaciones):
+                    rect = pygame.Rect(ANCHO - 210,50+i*40,200,35)
+                    if rect.collidepoint(event.pos):
+                        formacion_rojo = f
+                        _, equipo2 = obtener_formacion(f)
+                        originales2 = equipo2.copy()
+                        posiciones_rojo = teams_data[current_team_red]["players"].copy() if current_team_red else posiciones_base.copy()
+                        menu_formaciones_rojo = False
+                        if current_team_color == 'rojo' and current_team_red:
+                            teams_data[current_team_red]["formation"] = f
+                            save_teams()
 
-            # Selección de jugadores rojos
-            for i,pos in enumerate(equipo2):
-                rect = pygame.Rect(pos[0],pos[1],45,45)
-                if rect.collidepoint(mouse_x,mouse_y):
-                    jugador_seleccionado = ("rojo",i)
-                    offset_x = mouse_x - pos[0]
-                    offset_y = mouse_y - pos[1]
+            if menu_equipos_abierto:
+                for i, team in enumerate(teams_data.keys()):
+                    rect = pygame.Rect(10, ALTO - 50 - 40*(i+1), 200, 35)
+                    if rect.collidepoint(event.pos):
+                        current_team = team
+                        current_team_color = 'azul'
+                        formacion_azul = teams_data[team]["formation"]
+                        equipo1, _ = obtener_formacion(formacion_azul)
+                        originales1, _ = posiciones_originales(formacion_azul)
+                        posiciones_azul = teams_data[team]["players"].copy()
+                        posiciones_rojo = teams_data[current_team_red]["players"].copy() if current_team_red else posiciones_base.copy()
+                        menu_equipos_abierto = False
 
-        if event.type == pygame.MOUSEBUTTONUP:
-            if jugador_seleccionado:
-                equipo, indice = jugador_seleccionado
-                mouse_rect = pygame.Rect(0,0,45,45)
+            if menu_equipos_rojo_abierto:
+                for i, team in enumerate(teams_data.keys()):
+                    rect = pygame.Rect(ANCHO - 210, ALTO - 50 - 40*(i+1), 200, 35)
+                    if rect.collidepoint(event.pos):
+                        current_team_red = team
+                        current_team_color = 'rojo'
+                        formacion_rojo = teams_data[team]["formation"]
+                        _, equipo2 = obtener_formacion(formacion_rojo)
+                        originales2 = equipo2.copy()
+                        posiciones_rojo = teams_data[team]["players"].copy()
+                        posiciones_azul = teams_data[current_team]["players"].copy() if current_team else posiciones_base.copy()
+                        menu_equipos_rojo_abierto = False
 
-                if equipo == "azul":
-                    for i,pos in enumerate(equipo1):
-                        if i != indice:
-                            rect = pygame.Rect(pos[0],pos[1],45,45)
-                            if rect.colliderect(mouse_rect.move(equipo1[indice])):
-                                # Intercambiamos roles y volvemos a posiciones originales
-                                equipo1[indice], equipo1[i] = originales1[i], originales1[indice]
-                                posiciones_azul[indice], posiciones_azul[i] = posiciones_azul[i], posiciones_azul[indice]
+            # Player selection logic
+            clicked_player = None
+            clicked_team = None
+            clicked_index = None
 
-                if equipo == "rojo":
-                    for i,pos in enumerate(equipo2):
-                        if i != indice:
-                            rect = pygame.Rect(pos[0],pos[1],45,45)
-                            if rect.colliderect(mouse_rect.move(equipo2[indice])):
-                                equipo2[indice], equipo2[i] = originales2[i], originales2[indice]
-                                posiciones_rojo[indice], posiciones_rojo[i] = posiciones_rojo[i], posiciones_rojo[indice]
+            for i, pos in enumerate(equipo1):
+                rect = pygame.Rect(pos[0], pos[1], 45, 45)
+                if rect.collidepoint(mouse_x, mouse_y):
+                    clicked_player = pos
+                    clicked_team = "azul"
+                    clicked_index = i
+                    break
 
-                # Actualizamos coordenadas originales después del intercambio
-                originales1 = equipo1.copy()
-                originales2 = equipo2.copy()
+            if clicked_player is None:
+                for i, pos in enumerate(equipo2):
+                    rect = pygame.Rect(pos[0], pos[1], 45, 45)
+                    if rect.collidepoint(mouse_x, mouse_y):
+                        clicked_player = pos
+                        clicked_team = "rojo"
+                        clicked_index = i
+                        break
 
-            jugador_seleccionado = None
+            if clicked_player is not None:
+                # First selection
+                if selected_player is None:
+                    selected_player = (clicked_team, clicked_index)
+                else:
+                    selected_team, selected_index = selected_player
+                    # Solo se permite swap dentro del mismo equipo
+                    if selected_team == clicked_team and selected_index != clicked_index:
+                        if selected_team == "azul":
+                            equipo1[selected_index], equipo1[clicked_index] = equipo1[clicked_index], equipo1[selected_index]
+                            posiciones_azul[selected_index], posiciones_azul[clicked_index] = posiciones_azul[clicked_index], posiciones_azul[selected_index]
+                        else:
+                            equipo2[selected_index], equipo2[clicked_index] = equipo2[clicked_index], equipo2[selected_index]
+                            posiciones_rojo[selected_index], posiciones_rojo[clicked_index] = posiciones_rojo[clicked_index], posiciones_rojo[selected_index]
+                    # Deseleccionar siempre después del intento
+                    selected_player = None
 
-        if event.type == pygame.MOUSEMOTION:
-            if jugador_seleccionado:
-                mouse_x,mouse_y = event.pos
-                equipo,indice = jugador_seleccionado
-                if equipo == "azul":
-                    equipo1[indice] = (mouse_x-offset_x,mouse_y-offset_y)
-                if equipo == "rojo":
-                    equipo2[indice] = (mouse_x-offset_x,mouse_y-offset_y)
+
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_s:
@@ -221,18 +321,71 @@ while running:
     for i,pos in enumerate(equipo2):
         pantalla.blit(jugador_rojo,pos)
         texto = font.render(posiciones_rojo[i],True,(255,255,255))
-        pantalla.blit(texto,(pos[0],pos[1]-18))
+        text_rect = texto.get_rect(center=(pos[0]+22.5, pos[1]-12))
+        pantalla.blit(texto,text_rect)
 
-    pygame.draw.rect(pantalla,(20,20,20),boton_formacion)
-    texto = font.render("Formacion: "+formacion_actual,True,(255,255,255))
-    pantalla.blit(texto,(20,20))
+    # Highlight selected player
+    if selected_player:
+        equipo, idx = selected_player
+        pos = equipo1[idx] if equipo == "azul" else equipo2[idx]
+        pygame.draw.circle(pantalla, (255, 255, 0), (pos[0] + 22, pos[1] + 22), 30, 3)
 
-    if menu_abierto:
+    pygame.draw.rect(pantalla,(20,20,20),boton_formacion_azul)
+    texto = font.render("Formacion Azul: "+formacion_azul,True,(255,255,255))
+    text_rect = texto.get_rect(center=boton_formacion_azul.center)
+    pantalla.blit(texto,text_rect)
+
+    pygame.draw.rect(pantalla,(20,20,20),boton_formacion_rojo)
+    texto = font.render("Formacion Rojo: "+formacion_rojo,True,(255,255,255))
+    text_rect = texto.get_rect(center=boton_formacion_rojo.center)
+    pantalla.blit(texto,text_rect)
+
+    pygame.draw.rect(pantalla,(100,100,0),boton_guardar)
+    texto = font.render("G",True,(255,255,255))
+    text_rect = texto.get_rect(center=boton_guardar.center)
+    pantalla.blit(texto,text_rect)
+
+    pygame.draw.rect(pantalla,(20,20,20),boton_equipos)
+    texto = font.render("Equipo Azul: " + (current_team if current_team else "Ninguno"), True, (255,255,255))
+    text_rect = texto.get_rect(center=boton_equipos.center)
+    pantalla.blit(texto,text_rect)
+
+    pygame.draw.rect(pantalla,(20,20,20),boton_equipos_rojo)
+    texto = font.render("Equipo Rojo: " + (current_team_red if current_team_red else "Ninguno"), True, (255,255,255))
+    text_rect = texto.get_rect(center=boton_equipos_rojo.center)
+    pantalla.blit(texto,text_rect)
+
+    if menu_formaciones_azul:
         for i,f in enumerate(formaciones):
             rect = pygame.Rect(10,50+i*40,200,35)
             pygame.draw.rect(pantalla,(60,60,60),rect)
             texto = font.render(f,True,(255,255,255))
-            pantalla.blit(texto,(60,60+i*40))
+            text_rect = texto.get_rect(center=rect.center)
+            pantalla.blit(texto,text_rect)
+
+    if menu_formaciones_rojo:
+        for i,f in enumerate(formaciones):
+            rect = pygame.Rect(ANCHO - 210,50+i*40,200,35)
+            pygame.draw.rect(pantalla,(60,60,60),rect)
+            texto = font.render(f,True,(255,255,255))
+            text_rect = texto.get_rect(center=rect.center)
+            pantalla.blit(texto,text_rect)
+
+    if menu_equipos_abierto:
+        for i, team in enumerate(teams_data.keys()):
+            rect = pygame.Rect(10, ALTO - 50 - 40*(i+1), 200, 35)
+            pygame.draw.rect(pantalla,(60,60,60),rect)
+            texto = font.render(team, True, (255,255,255))
+            text_rect = texto.get_rect(center=rect.center)
+            pantalla.blit(texto,text_rect)
+
+    if menu_equipos_rojo_abierto:
+        for i, team in enumerate(teams_data.keys()):
+            rect = pygame.Rect(ANCHO - 210, ALTO - 50 - 40*(i+1), 200, 35)
+            pygame.draw.rect(pantalla,(60,60,60),rect)
+            texto = font.render(team, True, (255,255,255))
+            text_rect = texto.get_rect(center=rect.center)
+            pantalla.blit(texto,text_rect)
 
     pygame.display.flip()
 
