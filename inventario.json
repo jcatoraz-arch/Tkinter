@@ -1,0 +1,26 @@
+{
+    "productos": [
+        {
+            "id": 0,
+            "nombre": "tiramis\u00fa",
+            "precio": 123.0,
+            "stock": 12,
+            "categoria": "Comida/Postre"
+        },
+        {
+            "id": 1,
+            "nombre": "pasta frola",
+            "precio": 122.0,
+            "stock": 3,
+            "categoria": "Comida/Postre"
+        },
+        {
+            "id": 3,
+            "nombre": "banana",
+            "precio": 121.0,
+            "stock": 111,
+            "categoria": "Comida/Frutas"
+        }
+    ],
+    "contador_id": 1222
+}

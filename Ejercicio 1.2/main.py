@@ -1,6 +1,8 @@
 import pygame
 import os
 import json
+import tkinter as tk
+from tkinter import messagebox
 
 pygame.init()
 
@@ -172,14 +174,51 @@ def guardar_formacion():
 
 
 def guardar_cambios_equipo():
-    # Guarda posiciones y formaciones actuales en teams_data
+
+    # guardar equipo azul
     if current_team:
-        teams_data[current_team]["player_positions"] = equipo1.copy()
+        teams_data[current_team]["players"] = posiciones_azul.copy()
         teams_data[current_team]["formation"] = formacion_azul
+
+    # guardar equipo rojo
     if current_team_red:
-        teams_data[current_team_red]["player_positions"] = equipo2.copy()
+        teams_data[current_team_red]["players"] = posiciones_rojo.copy()
         teams_data[current_team_red]["formation"] = formacion_rojo
+
     save_teams()
+
+def confirmar_guardado():
+
+    root = tk.Tk()
+    root.withdraw()
+
+    respuesta = messagebox.askyesno(
+        "Confirmar guardado",
+        "¿Estas seguro que deseas guardar la formación de este plantel?"
+    )
+
+    root.destroy()
+
+    return respuesta
+def dibujar_boton(rect, texto):
+
+    mouse = pygame.mouse.get_pos()
+    click = pygame.mouse.get_pressed()
+
+    color = (40,40,40)
+
+    if rect.collidepoint(mouse):
+        color = (80,80,80)
+
+    if rect.collidepoint(mouse) and click[0]:
+        color = (20,20,20)
+
+    pygame.draw.rect(pantalla, color, rect)
+    pygame.draw.rect(pantalla, (255,255,255), rect, 2)
+
+    texto_render = font.render(texto, True, (255,255,255))
+    text_rect = texto_render.get_rect(center=rect.center)
+    pantalla.blit(texto_render, text_rect)
 
 running = True
 
@@ -210,7 +249,8 @@ while running:
                 menu_equipos_rojo_abierto = not menu_equipos_rojo_abierto
 
             if boton_guardar.collidepoint(event.pos):
-                guardar_cambios_equipo()
+                if confirmar_guardado():
+                    guardar_cambios_equipo()
 
             if menu_formaciones_azul:
                 for i,f in enumerate(formaciones):
@@ -287,20 +327,30 @@ while running:
                         break
 
             if clicked_player is not None:
-                # First selection
+
+                # primera selección
                 if selected_player is None:
                     selected_player = (clicked_team, clicked_index)
+
                 else:
                     selected_team, selected_index = selected_player
-                    # Solo se permite swap dentro del mismo equipo
-                    if selected_team == clicked_team and selected_index != clicked_index:
+
+                    # SOLO intercambiar si es el mismo equipo
+                    if selected_team == clicked_team:
+
                         if selected_team == "azul":
-                            equipo1[selected_index], equipo1[clicked_index] = equipo1[clicked_index], equipo1[selected_index]
-                            posiciones_azul[selected_index], posiciones_azul[clicked_index] = posiciones_azul[clicked_index], posiciones_azul[selected_index]
-                        else:
-                            equipo2[selected_index], equipo2[clicked_index] = equipo2[clicked_index], equipo2[selected_index]
-                            posiciones_rojo[selected_index], posiciones_rojo[clicked_index] = posiciones_rojo[clicked_index], posiciones_rojo[selected_index]
-                    # Deseleccionar siempre después del intento
+                            posiciones_azul[selected_index], posiciones_azul[clicked_index] = (
+                                posiciones_azul[clicked_index],
+                                posiciones_azul[selected_index]
+                            )
+
+                        elif selected_team == "rojo":
+                            posiciones_rojo[selected_index], posiciones_rojo[clicked_index] = (
+                                posiciones_rojo[clicked_index],
+                                posiciones_rojo[selected_index]
+                            )
+
+                    # deseleccionar siempre
                     selected_player = None
 
 
@@ -330,30 +380,23 @@ while running:
         pos = equipo1[idx] if equipo == "azul" else equipo2[idx]
         pygame.draw.circle(pantalla, (255, 255, 0), (pos[0] + 22, pos[1] + 22), 30, 3)
 
-    pygame.draw.rect(pantalla,(20,20,20),boton_formacion_azul)
-    texto = font.render("Formacion Azul: "+formacion_azul,True,(255,255,255))
-    text_rect = texto.get_rect(center=boton_formacion_azul.center)
-    pantalla.blit(texto,text_rect)
+    dibujar_boton(boton_formacion_azul,"Formacion Azul: "+formacion_azul)
+    dibujar_boton(boton_formacion_rojo,"Formacion Rojo: "+formacion_rojo)
 
-    pygame.draw.rect(pantalla,(20,20,20),boton_formacion_rojo)
-    texto = font.render("Formacion Rojo: "+formacion_rojo,True,(255,255,255))
-    text_rect = texto.get_rect(center=boton_formacion_rojo.center)
-    pantalla.blit(texto,text_rect)
+    mouse = pygame.mouse.get_pos()
+    click = pygame.mouse.get_pressed()
 
-    pygame.draw.rect(pantalla,(100,100,0),boton_guardar)
-    texto = font.render("G",True,(255,255,255))
-    text_rect = texto.get_rect(center=boton_guardar.center)
-    pantalla.blit(texto,text_rect)
+    color_guardar = (120,120,0)
 
-    pygame.draw.rect(pantalla,(20,20,20),boton_equipos)
-    texto = font.render("Equipo Azul: " + (current_team if current_team else "Ninguno"), True, (255,255,255))
-    text_rect = texto.get_rect(center=boton_equipos.center)
-    pantalla.blit(texto,text_rect)
+    if boton_guardar.collidepoint(mouse):
+        color_guardar = (170,170,0)
 
-    pygame.draw.rect(pantalla,(20,20,20),boton_equipos_rojo)
-    texto = font.render("Equipo Rojo: " + (current_team_red if current_team_red else "Ninguno"), True, (255,255,255))
-    text_rect = texto.get_rect(center=boton_equipos_rojo.center)
-    pantalla.blit(texto,text_rect)
+    if boton_guardar.collidepoint(mouse) and click[0]:
+        color_guardar = (80,80,0)
+
+    dibujar_boton(boton_guardar,"G")
+    dibujar_boton(boton_equipos,"Equipo Azul: " + (current_team if current_team else "Ninguno"))
+    dibujar_boton(boton_equipos_rojo,"Equipo Rojo: " + (current_team_red if current_team_red else "Ninguno"))
 
     if menu_formaciones_azul:
         for i,f in enumerate(formaciones):
